@@ -1,72 +1,83 @@
-
-# Author: vlarobbyk
-# Version: 1.0
-# Date: 2024-10-20
-# Description: A simple example to process video captured by the ESP32-XIAO-S3 or ESP32-CAM-MB in Flask.
-
-
-from flask import Flask, render_template, Response, stream_with_context, Request
-from io import BytesIO
-
+from flask import Flask, render_template, send_file
 import cv2
+import os
 import numpy as np
-import requests
 
 app = Flask(__name__)
-# IP Address
-_URL = 'http://10.0.0.3'
-# Default Streaming Port
-_PORT = '81'
-# Default streaming route
-_ST = '/stream'
-SEP = ':'
 
-stream_url = ''.join([_URL,SEP,_PORT,_ST])
+# Rutas de las imágenes específicas
+imagenes = [
+    '/home/andy/Escritorio/vc/practica2/ESP32-XIAO-S3-Flask-Server/static/person1000_bacteria_2931.jpeg',
+    '/home/andy/Escritorio/vc/practica2/ESP32-XIAO-S3-Flask-Server/static/person1003_virus_1685.jpeg',
+    '/home/andy/Escritorio/vc/practica2/ESP32-XIAO-S3-Flask-Server/static/person1008_virus_1691.jpeg'
+]
 
+procesadas_carpeta = 'procesadas'  # Carpeta para guardar imágenes procesadas
 
-def video_capture():
-    res = requests.get(stream_url, stream=True)
-    for chunk in res.iter_content(chunk_size=100000):
+# Asegúrate de que la carpeta para guardar imágenes procesadas exista
+if not os.path.exists(procesadas_carpeta):
+    os.makedirs(procesadas_carpeta)
 
-        if len(chunk) > 100:
-            try:
-                img_data = BytesIO(chunk)
-                cv_img = cv2.imdecode(np.frombuffer(img_data.read(), np.uint8), 1)
-                gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-                N = 537
-                height, width = gray.shape
-                noise = np.full((height, width), 0, dtype=np.uint8)
-                random_positions = (np.random.randint(0, height, N), np.random.randint(0, width, N))
-                
-                noise[random_positions[0], random_positions[1]] = 255
+# Parámetros para operaciones morfológicas
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 
-                noise_image = cv2.bitwise_or(gray, noise)
-
-                total_image = np.zeros((height, width * 2), dtype=np.uint8)
-                total_image[:, :width] = gray
-                total_image[:, width:] = noise_image
-
-                (flag, encodedImage) = cv2.imencode(".jpg", total_image)
-                if not flag:
-                    continue
-
-                yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
-                bytearray(encodedImage) + b'\r\n')
-
-            except Exception as e:
-                print(e)
-                continue
-
-@app.route("/")
+# Ruta principal que procesa y muestra las imágenes
+@app.route('/')
 def index():
-    return render_template("index.html")
+    imagenes_procesadas = []
+    
+    # Procesar cada imagen
+    for ruta_imagen in imagenes:
+        # Carga la imagen en escala de grises
+        imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
+        
+        # Guarda la imagen original en la lista
+        nombre_imagen = os.path.basename(ruta_imagen)
+        ruta_original = os.path.join(procesadas_carpeta, f'original_{nombre_imagen}')
+        cv2.imwrite(ruta_original, imagen)
+        
+        # Erosión
+        erosion = cv2.erode(imagen, kernel, iterations=1)
+        ruta_erosion = os.path.join(procesadas_carpeta, f'erosion_{nombre_imagen}')
+        cv2.imwrite(ruta_erosion, erosion)
+        
+        # Dilatación
+        dilatacion = cv2.dilate(imagen, kernel, iterations=1)
+        ruta_dilatacion = os.path.join(procesadas_carpeta, f'dilatacion_{nombre_imagen}')
+        cv2.imwrite(ruta_dilatacion, dilatacion)
+        
+        # Top Hat
+        top_hat = cv2.morphologyEx(imagen, cv2.MORPH_TOPHAT, kernel)
+        ruta_top_hat = os.path.join(procesadas_carpeta, f'top_hat_{nombre_imagen}')
+        cv2.imwrite(ruta_top_hat, top_hat)
+        
+        # Black Hat
+        black_hat = cv2.morphologyEx(imagen, cv2.MORPH_BLACKHAT, kernel)
+        ruta_black_hat = os.path.join(procesadas_carpeta, f'black_hat_{nombre_imagen}')
+        cv2.imwrite(ruta_black_hat, black_hat)
+        
+        # Imagen Original + (Top Hat - Black Hat)
+        resultado = cv2.add(imagen, cv2.subtract(top_hat, black_hat))
+        ruta_resultado = os.path.join(procesadas_carpeta, f'resultado_{nombre_imagen}')
+        cv2.imwrite(ruta_resultado, resultado)
+        
+        # Agrega las rutas de cada imagen procesada con su tipo para mostrarla en el HTML
+        imagenes_procesadas.append({
+            'original': ruta_original,
+            'erosion': ruta_erosion,
+            'dilatacion': ruta_dilatacion,
+            'top_hat': ruta_top_hat,
+            'black_hat': ruta_black_hat,
+            'resultado': ruta_resultado
+        })
+    
+    return render_template('index.html', imagenes=imagenes_procesadas)
 
+# Ruta para mostrar una imagen procesada
+@app.route('/imagen/<nombre>')
+def mostrar_imagen(nombre):
+    ruta_imagen = os.path.join(procesadas_carpeta, nombre)
+    return send_file(ruta_imagen, mimetype='image/jpeg')
 
-@app.route("/video_stream")
-def video_stream():
-    return Response(video_capture(),
-                    mimetype="multipart/x-mixed-replace; boundary=frame")
-
-if __name__ == "__main__":
-    app.run(debug=False)
-
+if __name__ == '__main__':
+    app.run(debug=True)

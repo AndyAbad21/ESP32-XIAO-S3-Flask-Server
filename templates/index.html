@@ -1,32 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-     <meta charset="UTF-8">
-     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <style>
-          .container{
-               margin: 0;
-               padding: 0;
-               width: 100%;
-               height: 100vh;
-               background-color: #f1f1bc;
-               color: black;
-               text-align: center;
-          }
-          .containerHeader{
-               display: flex;
-               flex-direction: column;
-               align-items: center;
-          }
-     </style>
-     <title>Videostreaming ESP32-CAM</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesamiento de Imágenes Médicas</title>
+    <h1>Nombre: Andy Abad</h1>
+    <style>
+        .container {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            background-color: #f1f1bc;
+            color: black;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .containerHeader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .imagenes-fila {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .imagen-item {
+            text-align: center;
+        }
+        .imagen-item img {
+            width: 150px;
+            height: auto;
+            border: 1px solid #ccc;
+            padding: 5px;
+            background-color: #f9f9f9;
+        }
+    </style>
 </head>
-<body class = "container">
-     <div class="containerHeader">
-          <h1>Video Streaming</h1>
-          <img src="{{ url_for('static', filename='Header.webp') }}" alt="Image header" width="50%">
-     </div>
-     <img src="{{ url_for('video_stream') }}">
+<body class="container">
+    <!-- Header de la página -->
+    <div class="containerHeader">
+        <h1>Procesamiento de Imágenes Médicas</h1>
+        <img src="{{ url_for('static', filename='Header.webp') }}" alt="Image header" width="50%">
+    </div>
+
+    <!-- Sección de imágenes procesadas -->
+    <h2>Imágenes Procesadas</h2>
+    <div class="container">
+        {% for imagen in imagenes %}
+            <div class="imagenes-fila">
+                <div class="imagen-item">
+                    <h3>Original</h3>
+                    <img src="{{ url_for('mostrar_imagen', nombre=imagen['original'].split('/')[-1]) }}" alt="Imagen Original">
+                </div>
+                <div class="imagen-item">
+                    <h3>Erosión</h3>
+                    <img src="{{ url_for('mostrar_imagen', nombre=imagen['erosion'].split('/')[-1]) }}" alt="Imagen Erosión">
+                </div>
+                <div class="imagen-item">
+                    <h3>Dilatación</h3>
+                    <img src="{{ url_for('mostrar_imagen', nombre=imagen['dilatacion'].split('/')[-1]) }}" alt="Imagen Dilatación">
+                </div>
+                <div class="imagen-item">
+                    <h3>Top Hat</h3>
+                    <img src="{{ url_for('mostrar_imagen', nombre=imagen['top_hat'].split('/')[-1]) }}" alt="Imagen Top Hat">
+                </div>
+                <div class="imagen-item">
+                    <h3>Black Hat</h3>
+                    <img src="{{ url_for('mostrar_imagen', nombre=imagen['black_hat'].split('/')[-1]) }}" alt="Imagen Black Hat">
+                </div>
+                <div class="imagen-item">
+                    <h3>Resultado</h3>
+                    <img src="{{ url_for('mostrar_imagen', nombre=imagen['resultado'].split('/')[-1]) }}" alt="Imagen Resultado">
+                </div>
+            </div>
+        {% endfor %}
+    </div>
 </body>
 </html>
